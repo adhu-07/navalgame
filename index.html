@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Naval Strategy Game Manager</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Russo+One&family=Poppins:wght@400;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Poppins', sans-serif;
+            background-color: #eaf5ff; /* Light blue background */
+            color: #2c3e50; /* Dark slate text */
+        }
+        .font-title {
+            font-family: 'Russo One', sans-serif;
+        }
+        .card {
+            background-color: #ffffff;
+            border-radius: 12px;
+            box-shadow: 0 8px 25px rgba(44, 62, 80, 0.1);
+            border: 1px solid #dbeafe;
+        }
+        .btn-primary {
+            @apply px-5 py-2 bg-blue-500 text-white rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 hover:bg-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-400;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+        }
+        .btn-secondary {
+            @apply px-4 py-2 bg-gray-200 text-gray-700 rounded-lg shadow-sm transition-all duration-300 transform hover:scale-105 hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-400;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+        }
+        .btn-danger {
+             @apply px-5 py-2 bg-red-500 text-white rounded-lg shadow-md transition-all duration-300 transform hover:scale-105 hover:bg-red-600 focus:outline-none focus:ring-2 focus:ring-red-400;
+            font-family: 'Poppins', sans-serif;
+            font-weight: 600;
+        }
+        .island-marker {
+            @apply absolute w-12 h-12 flex items-center justify-center font-bold text-2xl text-white rounded-full cursor-pointer transition-all duration-300;
+            font-family: 'Russo One', sans-serif;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+            border: 3px solid rgba(255,255,255,0.7);
+            box-shadow: 0 0 15px rgba(0,0,0,0.3);
+        }
+        .island-marker:hover {
+            transform: scale(1.2) rotate(5deg);
+            border-color: white;
+        }
+        .common { background-color: #8395a7; } /* Slate Grey */
+        .rare { background-color: #2ecc71; } /* Emerald Green */
+        .epic { background-color: #9b59b6; } /* Amethyst Purple */
+        .legendary { background-color: #f1c40f; } /* Sunflower Yellow */
+        
+        /* Modal styles */
+        .modal-backdrop {
+            @apply fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 transition-opacity duration-300;
+        }
+        .modal-content {
+            @apply card p-6 rounded-lg shadow-2xl w-full max-w-md mx-4 transform transition-transform duration-300 scale-95;
+        }
+        .modal-visible .modal-content {
+            @apply scale-100;
+        }
+
+        /* --- WINNER ANIMATION --- */
+        #winner-modal-content {
+            background: linear-gradient(180deg, #1e3a8a 0%, #3b82f6 100%);
+            color: white;
+            overflow: hidden;
+        }
+        .confetti { position: absolute; width: 8px; height: 8px; background-color: #f1c40f; border-radius: 50%; animation: confetti-fall 3s linear infinite; }
+        @keyframes confetti-fall { 0% { transform: translateY(-50px); opacity: 1; } 100% { transform: translateY(200px); opacity: 0; } }
+        .victory-title { font-family: 'Russo One', sans-serif; font-size: 3rem; color: #f1c40f; text-shadow: 0 0 15px #f1c40f; animation: title-glow 2s infinite alternate; }
+        @keyframes title-glow { from { opacity: 0.8; } to { opacity: 1; } }
+        .winner-name-large { font-family: 'Poppins', sans-serif; font-weight: 700; font-size: 2.25rem; }
+        
+        /* --- COMBAT ANIMATION --- */
+        #combat-modal-content {
+            background: #2c3e50;
+            color: white;
+            overflow: hidden;
+        }
+        .sword { font-size: 5rem; animation: sword-clash 1s ease-in-out; }
+        @keyframes sword-clash { 0% { transform: translateY(-50px) scale(0.5); opacity: 0; } 50% { transform: translateY(0) scale(1); opacity: 1; } 100% { transform: translateY(0) scale(1); opacity: 1; } }
+        .combat-outcome { animation: outcome-fade-in 1s 1s forwards; opacity: 0; }
+        @keyframes outcome-fade-in { to { opacity: 1; } }
+    </style>
+</head>
+<body class="bg-blue-50">
+
+    <!-- Main Container -->
+    <div class="container mx-auto p-4 md:p-8">
+        
+        <!-- Header -->
+        <header class="text-center mb-8">
+            <h1 class="font-title text-6xl md:text-7xl text-blue-800 tracking-wider">NAVAL COMMAND</h1>
+            <p class="text-lg text-gray-500">Classroom Strategy Game Manager</p>
+        </header>
+
+        <!-- Timer and Game Controls -->
+        <div class="card p-4 mb-8 flex flex-col lg:flex-row justify-between items-center gap-4">
+            <div class="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+                <div class="flex items-center gap-2">
+                    <label class="font-title text-xl text-gray-600">TIMER:</label>
+                    <input type="number" id="timer-minutes-input" placeholder="Mins" class="w-20 p-2 border-2 border-gray-300 rounded-lg text-center" value="10" min="0">
+                    <span class="font-bold text-gray-500">:</span>
+                    <input type="number" id="timer-seconds-input" placeholder="Secs" class="w-20 p-2 border-2 border-gray-300 rounded-lg text-center" value="0" min="0" max="59">
+                </div>
+                <div class="flex items-center gap-2">
+                    <button id="start-timer-btn" class="btn-primary">Start</button>
+                    <button id="stop-timer-btn" class="btn-secondary">Stop</button>
+                    <button id="reset-timer-btn" class="btn-secondary">Reset</button>
+                </div>
+            </div>
+            <div id="timer-display" class="font-title text-5xl text-red-600">10:00</div>
+            <div class="flex flex-col sm:flex-row gap-4">
+                <button id="add-team-btn" class="btn-secondary">Add Team</button>
+                <button id="next-round-btn" class="btn-primary bg-green-500 hover:bg-green-600">Next Round</button>
+                <button id="declare-winner-btn" class="btn-primary bg-yellow-500 hover:bg-yellow-600">Declare Winner</button>
+            </div>
+        </div>
+
+        <!-- Main Content: Map and Teams -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            <div class="lg:col-span-2 card p-4 relative">
+                <h2 class="font-title text-3xl text-center mb-4 text-blue-700">TERRITORY MAP</h2>
+                <div id="map-container" class="relative rounded-lg overflow-hidden">
+                    <img src="https://storage.googleapis.com/gemini-prod/images/560b4e33-9b43-424a-8e2b-f111812a6327" alt="Game Map" class="w-full h-auto">
+                </div>
+            </div>
+
+            <div id="teams-section" class="card p-4">
+                <h2 class="font-title text-3xl text-center mb-4 text-blue-700">FLEET STATUS</h2>
+                <div id="teams-container" class="space-y-4">
+                    <p class="text-center italic text-gray-500">Add a team to begin mobilization.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <div id="add-team-modal" class="modal-backdrop hidden opacity-0"><div class="modal-content"></div></div>
+    <div id="island-modal" class="modal-backdrop hidden opacity-0"><div id="island-modal-content" class="modal-content"></div></div>
+    <div id="attack-modal" class="modal-backdrop hidden opacity-0"><div id="attack-modal-content" class="modal-content"></div></div>
+    <div id="message-modal" class="modal-backdrop hidden opacity-0"><div id="message-modal-content" class="modal-content"></div></div>
+    <div id="timer-alert-modal" class="modal-backdrop hidden opacity-0"><div class="modal-content text-center border-4 border-red-500"></div></div>
+    <div id="winner-modal" class="modal-backdrop hidden opacity-0"><div id="winner-modal-content" class="modal-content text-center relative"></div></div>
+    <div id="combat-modal" class="modal-backdrop hidden opacity-0"><div id="combat-modal-content" class="modal-content text-center"></div></div>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // --- GAME STATE & CONFIG ---
+        const getInitialGameState = () => ({
+            teams: [],
+            islands: {
+                A: { name: 'Island A', rarity: 'common', owner: null, houses: 0, hotel: 0, pos: { top: '89%', left: '15%' } },
+                B: { name: 'Island B', rarity: 'common', owner: null, houses: 0, hotel: 0, pos: { top: '80%', left: '88%' } },
+                C: { name: 'Island C', rarity: 'rare', owner: null, houses: 0, hotel: 0, pos: { top: '63%', left: '35%' } },
+                D: { name: 'Island D', rarity: 'epic', owner: null, houses: 0, hotel: 0, pos: { top: '56%', left: '92%' } },
+                E: { name: 'Island E', rarity: 'rare', owner: null, houses: 0, hotel: 0, pos: { top: '40%', left: '25%' } },
+                F: { name: 'Island F', rarity: 'common', owner: null, houses: 0, hotel: 0, pos: { top: '12%', left: '85%' } },
+                G: { name: 'Island G', rarity: 'common', owner: null, houses: 0, hotel: 0, pos: { top: '12%', left: '15%' } },
+                H: { name: 'Island H', rarity: 'legendary', owner: null, houses: 0, hotel: 0, pos: { top: '45%', left: '60%' } },
+            },
+            timer: { interval: null, timeLeft: 600 }
+        });
+        let gameState = getInitialGameState();
+
+        const islandConfig = {
+            common: { houseCost: 10, hotelCost: 25, houseRevenue: 5, hotelRevenue: 10, islandRevenue: 10, color: 'common' },
+            rare: { houseCost: 15, hotelCost: 30, houseRevenue: 6, hotelRevenue: 12, islandRevenue: 13, color: 'rare' },
+            epic: { houseCost: 20, hotelCost: 40, houseRevenue: 8, hotelRevenue: 15, islandRevenue: 20, color: 'epic' },
+            legendary: { houseCost: 25, hotelCost: 50, houseRevenue: 10, hotelRevenue: 20, islandRevenue: 30, color: 'legendary' },
+        };
+
+        const getEl = (id) => document.getElementById(id);
+        const teamsContainer = getEl('teams-container');
+        const mapContainer = getEl('map-container');
+        const addTeamModal = getEl('add-team-modal');
+        const islandModal = getEl('island-modal');
+        const attackModal = getEl('attack-modal');
+        const messageModal = getEl('message-modal');
+        const timerMinutesInput = getEl('timer-minutes-input');
+        const timerSecondsInput = getEl('timer-seconds-input');
+        const timerDisplay = getEl('timer-display');
+        const timerAlertModal = getEl('timer-alert-modal');
+        const winnerModal = getEl('winner-modal');
+        const combatModal = getEl('combat-modal');
+
+        function toggleModal(modal, show) {
+            const content = modal.querySelector('.modal-content');
+            if (show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => {
+                    modal.classList.remove('opacity-0');
+                    if (content) content.classList.add('modal-visible');
+                }, 10);
+            } else {
+                modal.classList.add('opacity-0');
+                if (content) content.classList.remove('modal-visible');
+                setTimeout(() => modal.classList.add('hidden'), 500);
+            }
+        }
+
+        function showMessage(text, type = 'info') {
+            getEl('message-modal-content').innerHTML = `
+                <h3 class="font-title text-2xl mb-4 ${type === 'error' ? 'text-red-500' : 'text-blue-500'}">${type === 'error' ? 'Alert' : 'Notification'}</h3>
+                <p>${text}</p>
+                <div class="flex justify-end mt-6"><button class="btn-primary close-message-modal">OK</button></div>`;
+            toggleModal(messageModal, true);
+        }
+
+        function renderAll() {
+            renderTeams();
+            renderMapMarkers();
+        }
+
+        function renderTeams() {
+            teamsContainer.innerHTML = '';
+            if (gameState.teams.length === 0) {
+                teamsContainer.innerHTML = '<p class="text-center italic text-gray-500">Add a team to begin mobilization.</p>';
+                return;
+            }
+            gameState.teams.forEach(team => {
+                const teamCard = document.createElement('div');
+                teamCard.className = 'card p-4 transition-all duration-300 hover:shadow-xl';
+                const ownedIslands = Object.entries(gameState.islands).filter(([_, island]) => island.owner === team.id).map(([id, island]) => <li class="flex justify-between items-center py-1"><span>${island.name}</span> <button class="btn-secondary text-xs px-2 py-1 manage-island-btn" data-island-id="${id}">Manage</button></li>).join('');
+                teamCard.innerHTML = `
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-title text-2xl text-blue-700">${team.name}</h3>
+                        <div class="text-right">
+                            <p class="text-4xl font-bold font-title text-gray-700">${team.points}</p>
+                            <p class="text-xs text-gray-500">POINTS</p>
+                        </div>
+                    </div>
+                    <div class="mt-3">
+                        <h4 class="font-semibold text-sm border-b border-gray-200 mb-2 pb-1">OWNED ISLANDS</h4>
+                        <ul class="space-y-1 text-sm">${ownedIslands || '<li class="italic text-gray-400">No islands secured.</li>'}</ul>
+                    </div>`;
+                teamsContainer.appendChild(teamCard);
+            });
+        }
+
+        function renderMapMarkers() {
+            mapContainer.querySelectorAll('.island-marker').forEach(m => m.remove());
+            Object.entries(gameState.islands).forEach(([id, island]) => {
+                const marker = document.createElement('div');
+                const config = islandConfig[island.rarity];
+                marker.className = island-marker ${config.color};
+                marker.style.top = island.pos.top;
+                marker.style.left = island.pos.left;
+                marker.textContent = id;
+                marker.dataset.islandId = id;
+                marker.setAttribute('title', ${island.name} (${island.rarity}));
+                mapContainer.appendChild(marker);
+            });
+        }
+
+        function renderIslandModal(islandId) {
+            const island = gameState.islands[islandId];
+            const config = islandConfig[island.rarity];
+            const owner = gameState.teams.find(t => t.id === island.owner);
+            const teamOptions = gameState.teams.map(t => <option value="${t.id}" ${t.id === island.owner ? 'selected' : ''}>${t.name}</option>).join('');
+            const unownedOption = <option value="null" ${island.owner === null ? 'selected' : ''}>Unowned</option>;
+            const islandModalContent = getEl('island-modal-content');
+            islandModalContent.dataset.currentIsland = islandId;
+            islandModalContent.innerHTML = `
+                <h3 class="font-title text-3xl mb-1">${island.name} <span class="capitalize text-lg ${config.color}">${island.rarity}</span></h3>
+                <p class="mb-4 text-md">Owner: <span class="font-bold">${owner ? owner.name : 'Unowned'}</span></p>
+                <div class="mb-4">
+                    <label for="owner-select" class="block font-bold text-sm mb-1">Transfer Ownership</label>
+                    <select id="owner-select" class="w-full p-2 border-2 border-gray-300 rounded-lg">${teamOptions}${unownedOption}</select>
+                </div>
+                <div class="grid grid-cols-2 gap-4 text-center mb-4">
+                    <div>
+                        <h4 class="font-semibold">Houses: ${island.houses}/2</h4>
+                        <p class="text-xs">(Cost: ${config.houseCost} | Rev: ${config.houseRevenue})</p>
+                        <div class="flex gap-2 justify-center mt-2">
+                            <button class="btn-secondary build-btn" data-type="house" data-action="add" ${island.houses >= 2 ? 'disabled' : ''}>+</button>
+                            <button class="btn-secondary build-btn" data-type="house" data-action="remove" ${island.houses <= 0 ? 'disabled' : ''}>-</button>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-semibold">Hotel: ${island.hotel}/1</h4>
+                        <p class="text-xs">(Cost: ${config.hotelCost} | Rev: ${config.hotelRevenue})</p>
+                        <div class="flex gap-2 justify-center mt-2">
+                            <button class="btn-secondary build-btn" data-type="hotel" data-action="add" ${island.hotel >= 1 ? 'disabled' : ''}>+</button>
+                            <button class="btn-secondary build-btn" data-type="hotel" data-action="remove" ${island.hotel <= 0 ? 'disabled' : ''}>-</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="flex justify-between items-center mt-6">
+                    <button id="attack-island-btn" class="btn-danger" ${!owner ? 'disabled' : ''}>Attack Island</button>
+                    <button id="close-island-modal" class="btn-primary">Done</button>
+                </div>`;
+            toggleModal(islandModal, true);
+        }
+
+        function renderAttackModal(islandId) {
+            const island = gameState.islands[islandId];
+            const owner = gameState.teams.find(t => t.id === island.owner);
+            const attackers = gameState.teams.filter(t => t.id !== island.owner && t.points >= 30);
+            if (attackers.length === 0) {
+                showMessage('No other teams have enough points (30) to launch an attack.', 'info');
+                return;
+            }
+            const attackerOptions = attackers.map(t => <option value="${t.id}">${t.name} (${t.points} pts)</option>).join('');
+            const attackModalContent = getEl('attack-modal-content');
+            attackModalContent.dataset.currentIsland = islandId;
+            attackModalContent.innerHTML = `
+                <h3 class="font-title text-2xl mb-4">Launch Attack on ${island.name}</h3>
+                <p class="mb-4">Defender: <span class="font-bold">${owner.name}</span></p>
+                <div class="mb-4">
+                    <label for="attacker-select" class="block font-bold text-sm mb-1">Select Attacking Fleet</label>
+                    <select id="attacker-select" class="w-full p-2 border-2 border-gray-300 rounded-lg">${attackerOptions}</select>
+                </div>
+                <p class="text-sm text-center text-red-600 mb-4">Cost to attack: 30 points.</p>
+                <div class="flex justify-end gap-4 mt-6">
+                    <button id="cancel-attack" class="btn-secondary">Cancel</button>
+                    <button id="confirm-attack" class="btn-danger">Confirm Attack</button>
+                </div>`;
+            toggleModal(attackModal, true);
+        }
+
+        function declareWinner(winner) {
+            const winnerModalContent = getEl('winner-modal-content');
+            winnerModalContent.innerHTML = ''; // Clear previous
+            for (let i = 0; i < 50; i++) {
+                const confetti = document.createElement('div');
+                confetti.className = 'confetti';
+                confetti.style.left = ${Math.random() * 100}%;
+                confetti.style.top = ${Math.random() * 100}%;
+                confetti.style.animationDelay = ${Math.random() * 3}s;
+                winnerModalContent.appendChild(confetti);
+            }
+            winnerModalContent.innerHTML += `
+                <div class="text-center z-10 p-4">
+                    <h2 class="victory-title">VICTORY</h2>
+                    <p class="winner-name-large break-words">${winner.name}</p>
+                    <p class="text-xl">Final Score: ${winner.points}</p>
+                    <button id="restart-game-btn" class="btn-primary mt-8 bg-white text-blue-700 hover:bg-gray-200">Play Again?</button>
+                </div>
+            `;
+            toggleModal(winnerModal, true);
+        }
+        
+        function runCombat(islandId, attackerId) {
+            const combatModalContent = getEl('combat-modal-content');
+            const island = gameState.islands[islandId];
+            const attacker = gameState.teams.find(t => t.id === attackerId);
+            const defender = gameState.teams.find(t => t.id === island.owner);
+
+            combatModalContent.innerHTML = `
+                <div class="flex justify-around items-center w-full p-4">
+                    <p class="font-title text-2xl text-blue-300">${attacker.name}</p>
+                    <div class="sword">⚔</div>
+                    <p class="font-title text-2xl text-red-300">${defender.name}</p>
+                </div>
+                <div class="combat-outcome text-center mt-4">
+                    <!-- Outcome will be injected here -->
+                </div>
+            `;
+            toggleModal(combatModal, true);
+
+            setTimeout(() => {
+                const winner = Math.random() < 0.5 ? attacker : defender;
+                const outcomeEl = combatModalContent.querySelector('.combat-outcome');
+                
+                if (winner.id === attacker.id) {
+                    island.owner = attacker.id;
+                    island.houses = 0;
+                    island.hotel = 0;
+                    outcomeEl.innerHTML = <h3 class="font-title text-3xl text-green-400">${attacker.name} is Victorious!</h3>;
+                } else {
+                    outcomeEl.innerHTML = <h3 class="font-title text-3xl text-red-400">${defender.name} Defends the Island!</h3>;
+                }
+
+                setTimeout(() => {
+                    toggleModal(combatModal, false);
+                    renderAll();
+                    checkWinConditions();
+                }, 2000);
+
+            }, 1500);
+        }
+
+        function checkWinConditions() {
+            if (gameState.teams.length === 0) return false;
+            const ownedIslands = Object.values(gameState.islands).filter(i => i.owner !== null);
+            if (ownedIslands.length === Object.keys(gameState.islands).length && ownedIslands.length > 0) {
+                const firstOwnerId = ownedIslands[0].owner;
+                if (ownedIslands.every(i => i.owner === firstOwnerId)) {
+                    const winner = gameState.teams.find(t => t.id === firstOwnerId);
+                    if (winner) {
+                        setTimeout(() => declareWinner(winner), 500);
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        document.body.addEventListener('click', e => {
+            const target = e.target;
+            if (target.closest('#add-team-btn')) {
+                const addTeamModalContent = getEl('add-team-modal').querySelector('.modal-content');
+                addTeamModalContent.innerHTML = `
+                    <h3 class="font-title text-2xl mb-4">Deploy New Fleet</h3>
+                    <input type="text" id="team-name-input" placeholder="Enter fleet name..." class="w-full p-2 border-2 border-gray-300 rounded-lg mb-4 focus:ring-2 focus:ring-blue-400">
+                    <div class="flex justify-end gap-4">
+                        <button id="cancel-add-team" class="btn-secondary">Cancel</button>
+                        <button id="confirm-add-team" class="btn-primary">Deploy</button>
+                    </div>`;
+                toggleModal(addTeamModal, true);
+                getEl('team-name-input').focus();
+            }
+            if (target.closest('#cancel-add-team')) toggleModal(addTeamModal, false);
+            if (target.closest('#confirm-add-team')) {
+                const teamNameInput = getEl('team-name-input');
+                const name = teamNameInput ? teamNameInput.value.trim() : '';
+                if (name) {
+                    gameState.teams.push({ id: Date.now(), name, points: 130 });
+                    toggleModal(addTeamModal, false);
+                    renderAll();
+                }
+            }
+            if (target.closest('.close-message-modal')) toggleModal(messageModal, false);
+            if (target.closest('#close-timer-alert')) toggleModal(timerAlertModal, false);
+            if (target.closest('.manage-island-btn')) renderIslandModal(target.dataset.islandId);
+            if (target.closest('.island-marker')) renderIslandModal(target.dataset.islandId);
+            if (target.closest('#close-island-modal')) toggleModal(islandModal, false);
+            if (target.closest('.build-btn')) {
+                const islandId = target.closest('#island-modal-content').dataset.currentIsland;
+                const island = gameState.islands[islandId];
+                const owner = gameState.teams.find(t => t.id === island.owner);
+                if (!owner) { showMessage('An island must be owned to build on it.', 'error'); return; }
+                const config = islandConfig[island.rarity];
+                const cost = target.dataset.type === 'house' ? config.houseCost : config.hotelCost;
+                if (target.dataset.action === 'add') {
+                    if (owner.points < cost) { showMessage(${owner.name} cannot afford this construction., 'error'); return; }
+                    if (target.dataset.type === 'house' && island.houses < 2) { island.houses++; owner.points -= cost; }
+                    else if (target.dataset.type === 'hotel' && island.hotel < 1) { island.hotel++; owner.points -= cost; }
+                } else {
+                    if (target.dataset.type === 'house' && island.houses > 0) { island.houses--; owner.points += Math.floor(cost / 2); }
+                    else if (target.dataset.type === 'hotel' && island.hotel > 0) { island.hotel--; owner.points += Math.floor(cost / 2); }
+                }
+                renderIslandModal(islandId);
+                renderTeams();
+            }
+            if (target.closest('#attack-island-btn')) {
+                const islandId = target.closest('#island-modal-content').dataset.currentIsland;
+                renderAttackModal(islandId);
+            }
+            if (target.closest('#cancel-attack')) toggleModal(attackModal, false);
+            if (target.closest('#confirm-attack')) {
+                const islandId = target.closest('#attack-modal-content').dataset.currentIsland;
+                const attackerId = parseInt(getEl('attacker-select').value);
+                const attacker = gameState.teams.find(t => t.id === attackerId);
+                
+                attacker.points -= 30;
+                
+                toggleModal(attackModal, false);
+                toggleModal(islandModal, false);
+                runCombat(islandId, attackerId);
+            }
+            if (target.closest('#next-round-btn')) {
+                let log = '--- Revenue Phase ---\n';
+                gameState.teams.forEach(team => {
+                    let totalRevenue = 0;
+                    Object.values(gameState.islands).forEach(island => {
+                        if (island.owner === team.id) {
+                            const config = islandConfig[island.rarity];
+                            totalRevenue += config.islandRevenue + (island.houses * config.houseRevenue) + (island.hotel * config.hotelRevenue);
+                        }
+                    });
+                    team.points += totalRevenue;
+                    log += ${team.name} earned ${totalRevenue} points. New total: ${team.points}\n;
+                });
+                showMessage(log.replace(/\n/g, '<br>'), 'info');
+                renderAll();
+            }
+            if (target.closest('#start-timer-btn')) {
+                if (gameState.timer.interval) return;
+                const minutes = parseInt(timerMinutesInput.value) || 0;
+                const seconds = parseInt(timerSecondsInput.value) || 0;
+                gameState.timer.timeLeft = (minutes * 60) + seconds;
+                if (gameState.timer.timeLeft <= 0) { showMessage("Please enter a valid time.", "error"); return; }
+                updateTimerDisplay();
+                gameState.timer.interval = setInterval(() => {
+                    gameState.timer.timeLeft--;
+                    updateTimerDisplay();
+                    if (gameState.timer.timeLeft < 0) {
+                        clearInterval(gameState.timer.interval);
+                        gameState.timer.interval = null;
+                        gameState.timer.timeLeft = 0;
+                        updateTimerDisplay();
+                        getEl('timer-alert-modal').querySelector('.modal-content').innerHTML = `
+                            <h3 class="font-title text-8xl text-red-500 animate-pulse">ROUND END</h3>
+                            <p class="text-xl mt-4">Calculate revenue and plan your next move!</p>
+                            <button id="close-timer-alert" class="btn-primary mt-8">Acknowledge</button>`;
+                        toggleModal(timerAlertModal, true);
+                    }
+                }, 1000);
+            }
+            if (target.closest('#stop-timer-btn')) {
+                clearInterval(gameState.timer.interval);
+                gameState.timer.interval = null;
+            }
+            if (target.closest('#reset-timer-btn')) {
+                clearInterval(gameState.timer.interval);
+                gameState.timer.interval = null;
+                const minutes = parseInt(timerMinutesInput.value) || 0;
+                const seconds = parseInt(timerSecondsInput.value) || 0;
+                gameState.timer.timeLeft = (minutes * 60) + seconds;
+                updateTimerDisplay();
+            }
+            if (target.closest('#declare-winner-btn')) {
+                if (gameState.teams.length === 0) {
+                    showMessage('Add some teams first!', 'error');
+                    return;
+                }
+                const winner = [...gameState.teams].sort((a, b) => b.points - a.points)[0];
+                declareWinner(winner);
+            }
+            if (target.closest('#restart-game-btn')) {
+                gameState = getInitialGameState();
+                renderAll();
+                toggleModal(winnerModal, false);
+            }
+        });
+
+        document.body.addEventListener('change', e => {
+            if (e.target.id === 'owner-select') {
+                const islandId = e.target.closest('#island-modal-content').dataset.currentIsland;
+                const island = gameState.islands[islandId];
+                const previousOwnerId = island.owner;
+                const newOwnerId = e.target.value === 'null' ? null : parseInt(e.target.value);
+                island.owner = newOwnerId;
+                if (newOwnerId !== null && previousOwnerId === null) {
+                    const newOwner = gameState.teams.find(t => t.id === newOwnerId);
+                    const config = islandConfig[island.rarity];
+                    const pointsGained = config.islandRevenue;
+                    newOwner.points += pointsGained;
+                    setTimeout(() => {
+                        showMessage(${newOwner.name} claimed ${island.name} and gained ${pointsGained} points!, 'info');
+                    }, 350);
+                }
+                renderAll();
+                renderIslandModal(islandId);
+                checkWinConditions();
+            }
+        });
+
+        function updateTimerDisplay() {
+            const minutes = Math.floor(gameState.timer.timeLeft / 60);
+            const seconds = gameState.timer.timeLeft % 60;
+            timerDisplay.textContent = ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')};
+        }
+        updateTimerDisplay();
+        renderAll();
+    });
+    </script>
+</body>
+</html>
